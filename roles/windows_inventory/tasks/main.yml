@@ -1,0 +1,127 @@
+---
+# ── Normalize Windows facts into shared _li_* vars ─────────────────────────────
+# The sync tasks (sync_device, sync_vm, sync_interfaces) are shared with the
+# linux_inventory role via symlinks and consume _li_* prefixed vars, so both
+# roles produce identical NetBox output from different OS fact structures.
+
+- name: Normalize host facts
+  ansible.builtin.set_fact:
+    _li_hostname: "{{ ansible_hostname }}"
+    _li_is_vm: "{{ ansible_virtualization_role | default('NA') == 'guest' }}"
+    # Windows: ansible_os_name = "Microsoft Windows Server 2022 Standard"
+    # Strip "Microsoft " prefix and edition suffix for a clean platform name.
+    _li_platform_name: >-
+      {{
+        ansible_os_name | default(ansible_distribution)
+        | regex_replace('^Microsoft ', '')
+        | regex_replace(' (Standard|Enterprise|Datacenter|Essentials).*$', '')
+        | trim
+      }}
+    _li_vcpus: "{{ ansible_processor_vcpus | int }}"
+    _li_memory_mb: "{{ ansible_memtotal_mb | int }}"
+    _li_manufacturer: >-
+      {{
+        ansible_system_vendor | default('Generic')
+        | regex_replace(',? Inc\.?$|,? LLC\.?$|,? Ltd\.?$|,? Corp\.?$', '')
+        | trim
+      }}
+    _li_model: "{{ ansible_product_name | default('Generic Server') }}"
+    _li_serial: >-
+      {{
+        ansible_product_serial
+        if ansible_product_serial | default('') not in
+           ['', 'None', 'Not Specified', 'To Be Filled By O.E.M.', 'Default string']
+        else ''
+      }}
+    _li_interfaces: >-
+      {{
+        ansible_interfaces
+        | reject('match', windows_inventory_skip_iface_re)
+        | list
+      }}
+    # Map windows_inventory_* vars to the names the shared sync tasks expect
+    linux_inventory_netbox_url: "{{ windows_inventory_netbox_url }}"
+    linux_inventory_netbox_token: "{{ windows_inventory_netbox_token }}"
+    linux_inventory_netbox_validate_certs: "{{ windows_inventory_netbox_validate_certs }}"
+    linux_inventory_site: "{{ windows_inventory_site }}"
+    linux_inventory_device_role: "{{ windows_inventory_device_role }}"
+    linux_inventory_cluster: "{{ windows_inventory_cluster }}"
+    linux_inventory_status: "{{ windows_inventory_status }}"
+
+- name: Derive slugs
+  ansible.builtin.set_fact:
+    _li_manufacturer_slug: >-
+      {{ _li_manufacturer | lower | regex_replace('[^a-z0-9]+', '-') | regex_replace('^-+|-+$', '') }}
+    _li_model_slug: >-
+      {{ _li_model | lower | regex_replace('[^a-z0-9]+', '-') | regex_replace('^-+|-+$', '') }}
+    _li_platform_slug: >-
+      {{ _li_platform_name | lower | regex_replace('[^a-z0-9]+', '-') | regex_replace('^-+|-+$', '') }}
+
+# ── Ensure shared NetBox objects exist ─────────────────────────────────────────
+
+- name: Ensure platform exists
+  netbox.netbox.netbox_platform:
+    netbox_url: "{{ windows_inventory_netbox_url }}"
+    netbox_token: "{{ windows_inventory_netbox_token }}"
+    validate_certs: "{{ windows_inventory_netbox_validate_certs }}"
+    data:
+      name: "{{ _li_platform_name }}"
+      slug: "{{ _li_platform_slug }}"
+    state: present
+  delegate_to: localhost
+
+- name: Ensure manufacturer exists
+  netbox.netbox.netbox_manufacturer:
+    netbox_url: "{{ windows_inventory_netbox_url }}"
+    netbox_token: "{{ windows_inventory_netbox_token }}"
+    validate_certs: "{{ windows_inventory_netbox_validate_certs }}"
+    data:
+      name: "{{ _li_manufacturer }}"
+    state: present
+  delegate_to: localhost
+  when: not _li_is_vm | bool
+
+- name: Ensure device type exists
+  netbox.netbox.netbox_device_type:
+    netbox_url: "{{ windows_inventory_netbox_url }}"
+    netbox_token: "{{ windows_inventory_netbox_token }}"
+    validate_certs: "{{ windows_inventory_netbox_validate_certs }}"
+    data:
+      manufacturer:
+        slug: "{{ _li_manufacturer_slug }}"
+      model: "{{ _li_model }}"
+      slug: "{{ _li_model_slug }}"
+    state: present
+  delegate_to: localhost
+  when: not _li_is_vm | bool
+
+- name: Ensure device role exists
+  netbox.netbox.netbox_device_role:
+    netbox_url: "{{ windows_inventory_netbox_url }}"
+    netbox_token: "{{ windows_inventory_netbox_token }}"
+    validate_certs: "{{ windows_inventory_netbox_validate_certs }}"
+    data:
+      name: "{{ windows_inventory_device_role | capitalize }}"
+      slug: "{{ windows_inventory_device_role }}"
+      color: "0000ff"
+    state: present
+  delegate_to: localhost
+  when: not _li_is_vm | bool
+
+# ── Sync device or VM (shared tasks from linux_inventory) ──────────────────────
+
+- name: Sync physical device
+  ansible.builtin.include_tasks: sync_device.yml
+  when: not _li_is_vm | bool
+
+- name: Sync virtual machine
+  ansible.builtin.include_tasks: sync_vm.yml
+  when: _li_is_vm | bool
+
+# ── Sync interfaces and IPs ────────────────────────────────────────────────────
+
+- name: Sync interfaces
+  ansible.builtin.include_tasks: sync_interfaces.yml
+  loop: "{{ _li_interfaces }}"
+  loop_control:
+    loop_var: _iface_name

@@ -1,0 +1,20 @@
+---
+# NetBox connection — override in group_vars or vault
+windows_inventory_netbox_url: ""
+windows_inventory_netbox_token: ""
+windows_inventory_netbox_validate_certs: true
+
+# Required: slug of the NetBox site to assign hosts to
+windows_inventory_site: ""
+
+# Slug of the device role assigned to physical servers
+windows_inventory_device_role: server
+
+# Slug of the NetBox cluster for VMs (required when host is a VM)
+windows_inventory_cluster: ""
+
+# Status applied to all created objects
+windows_inventory_status: active
+
+# Interface names matching these patterns are skipped
+windows_inventory_skip_iface_re: "^(Loopback|isatap|teredo|6to4).*$"

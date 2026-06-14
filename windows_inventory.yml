@@ -1,0 +1,27 @@
+---
+# Collects facts from Windows hosts and registers them in NetBox.
+# Physical servers are created as Devices; VMs are created as Virtual Machines.
+# Network interfaces and IPv4 addresses are synced for each host.
+#
+# Prerequisites on the control node:
+#   pip install pywinrm           # for winrm connection
+#   pip install pypsrp            # alternative for psrp connection
+#
+# Required vars (set in group_vars or pass with -e):
+#   windows_inventory_netbox_url
+#   windows_inventory_netbox_token
+#   windows_inventory_site          # NetBox site slug
+#   windows_inventory_cluster       # NetBox cluster name (VMs only)
+#
+# Host connection vars (set in inventory or group_vars/windows_servers.yml):
+#   ansible_connection: winrm       # or psrp
+#   ansible_winrm_transport: ntlm   # or kerberos / credssp
+#   ansible_user: Administrator
+#   ansible_password: !vault |...
+#   ansible_port: 5985              # or 5986 for HTTPS
+#   ansible_winrm_server_cert_validation: ignore  # for self-signed certs
+- name: Inventory Windows servers into NetBox
+  hosts: windows_servers
+  gather_facts: true
+  roles:
+    - role: windows_inventory
