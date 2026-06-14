@@ -1,0 +1,167 @@
+---
+# Called with loop_var _dtl_file — path to a device type YAML file.
+
+- name: Load device type YAML — {{ _dtl_file | basename }}
+  ansible.builtin.set_fact:
+    _dt: "{{ lookup('ansible.builtin.file', _dtl_file) | from_yaml }}"
+
+- name: "Ensure manufacturer — {{ _dt.manufacturer }}"
+  netbox.netbox.netbox_manufacturer:
+    netbox_url: "{{ dtl_netbox_url }}"
+    netbox_token: "{{ dtl_netbox_token }}"
+    validate_certs: "{{ dtl_netbox_validate_certs }}"
+    data:
+      name: "{{ _dt.manufacturer }}"
+    state: present
+
+- name: "Ensure device type — {{ _dt.manufacturer }} {{ _dt.model }}"
+  netbox.netbox.netbox_device_type:
+    netbox_url: "{{ dtl_netbox_url }}"
+    netbox_token: "{{ dtl_netbox_token }}"
+    validate_certs: "{{ dtl_netbox_validate_certs }}"
+    data:
+      manufacturer: "{{ _dt.manufacturer }}"
+      model: "{{ _dt.model }}"
+      slug: "{{ _dt.slug }}"
+      part_number: "{{ _dt.part_number | default(omit) }}"
+      u_height: "{{ _dt.u_height | default(1) }}"
+      is_full_depth: "{{ _dt.is_full_depth | default(true) }}"
+      subdevice_role: "{{ _dt.subdevice_role | default(omit) }}"
+      airflow: "{{ _dt.airflow | default(omit) }}"
+      comments: "{{ _dt.comments | default(omit) }}"
+    state: present
+
+# ── Component templates ────────────────────────────────────────────────────────
+
+- name: "Console port templates — {{ _dt.model }}"
+  netbox.netbox.netbox_console_port_template:
+    netbox_url: "{{ dtl_netbox_url }}"
+    netbox_token: "{{ dtl_netbox_token }}"
+    validate_certs: "{{ dtl_netbox_validate_certs }}"
+    data:
+      device_type: "{{ _dt.slug }}"
+      name: "{{ item.name }}"
+      type: "{{ item.type | default(omit) }}"
+    state: present
+  loop: "{{ _dt['console-ports'] | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: "Console server port templates — {{ _dt.model }}"
+  netbox.netbox.netbox_console_server_port_template:
+    netbox_url: "{{ dtl_netbox_url }}"
+    netbox_token: "{{ dtl_netbox_token }}"
+    validate_certs: "{{ dtl_netbox_validate_certs }}"
+    data:
+      device_type: "{{ _dt.slug }}"
+      name: "{{ item.name }}"
+      type: "{{ item.type | default(omit) }}"
+    state: present
+  loop: "{{ _dt['console-server-ports'] | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: "Power port templates — {{ _dt.model }}"
+  netbox.netbox.netbox_power_port_template:
+    netbox_url: "{{ dtl_netbox_url }}"
+    netbox_token: "{{ dtl_netbox_token }}"
+    validate_certs: "{{ dtl_netbox_validate_certs }}"
+    data:
+      device_type: "{{ _dt.slug }}"
+      name: "{{ item.name }}"
+      type: "{{ item.type | default(omit) }}"
+      maximum_draw: "{{ item.maximum_draw | default(omit) }}"
+      allocated_draw: "{{ item.allocated_draw | default(omit) }}"
+    state: present
+  loop: "{{ _dt['power-ports'] | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: "Power outlet templates — {{ _dt.model }}"
+  netbox.netbox.netbox_power_outlet_template:
+    netbox_url: "{{ dtl_netbox_url }}"
+    netbox_token: "{{ dtl_netbox_token }}"
+    validate_certs: "{{ dtl_netbox_validate_certs }}"
+    data:
+      device_type: "{{ _dt.slug }}"
+      name: "{{ item.name }}"
+      type: "{{ item.type | default(omit) }}"
+      power_port: "{{ item.power_port | default(omit) }}"
+      feed_leg: "{{ item.feed_leg | default(omit) }}"
+    state: present
+  loop: "{{ _dt['power-outlets'] | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: "Interface templates — {{ _dt.model }}"
+  netbox.netbox.netbox_interface_template:
+    netbox_url: "{{ dtl_netbox_url }}"
+    netbox_token: "{{ dtl_netbox_token }}"
+    validate_certs: "{{ dtl_netbox_validate_certs }}"
+    data:
+      device_type: "{{ _dt.slug }}"
+      name: "{{ item.name }}"
+      type: "{{ item.type }}"
+      mgmt_only: "{{ item.mgmt_only | default(false) }}"
+    state: present
+  loop: "{{ _dt.interfaces | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: "Rear port templates — {{ _dt.model }}"
+  netbox.netbox.netbox_rear_port_template:
+    netbox_url: "{{ dtl_netbox_url }}"
+    netbox_token: "{{ dtl_netbox_token }}"
+    validate_certs: "{{ dtl_netbox_validate_certs }}"
+    data:
+      device_type: "{{ _dt.slug }}"
+      name: "{{ item.name }}"
+      type: "{{ item.type }}"
+      positions: "{{ item.positions | default(1) }}"
+    state: present
+  loop: "{{ _dt['rear-ports'] | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: "Front port templates — {{ _dt.model }}"
+  netbox.netbox.netbox_front_port_template:
+    netbox_url: "{{ dtl_netbox_url }}"
+    netbox_token: "{{ dtl_netbox_token }}"
+    validate_certs: "{{ dtl_netbox_validate_certs }}"
+    data:
+      device_type: "{{ _dt.slug }}"
+      name: "{{ item.name }}"
+      type: "{{ item.type }}"
+      rear_port: "{{ item.rear_port }}"
+      rear_port_position: "{{ item.rear_port_position | default(1) }}"
+    state: present
+  loop: "{{ _dt['front-ports'] | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: "Device bay templates — {{ _dt.model }}"
+  netbox.netbox.netbox_device_bay_template:
+    netbox_url: "{{ dtl_netbox_url }}"
+    netbox_token: "{{ dtl_netbox_token }}"
+    validate_certs: "{{ dtl_netbox_validate_certs }}"
+    data:
+      device_type: "{{ _dt.slug }}"
+      name: "{{ item.name }}"
+    state: present
+  loop: "{{ _dt['device-bays'] | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: "Module bay templates — {{ _dt.model }}"
+  netbox.netbox.netbox_module_bay_template:
+    netbox_url: "{{ dtl_netbox_url }}"
+    netbox_token: "{{ dtl_netbox_token }}"
+    validate_certs: "{{ dtl_netbox_validate_certs }}"
+    data:
+      device_type: "{{ _dt.slug }}"
+      name: "{{ item.name }}"
+      position: "{{ item.position | default(omit) }}"
+    state: present
+  loop: "{{ _dt['module-bays'] | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"

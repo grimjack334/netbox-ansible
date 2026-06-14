@@ -1,0 +1,31 @@
+---
+# Import device types from netbox-community/devicetype-library into NetBox.
+#
+# Usage — import by manufacturer:
+#   ansible-playbook import_device_types.yml \
+#     -e dtl_netbox_url=http://netbox:8080 \
+#     -e dtl_netbox_token=<token> \
+#     -e '{"dtl_manufacturers": ["Cisco", "Dell"]}'
+#
+# Usage — import specific files:
+#   ansible-playbook import_device_types.yml \
+#     -e dtl_netbox_url=http://netbox:8080 \
+#     -e dtl_netbox_token=<token> \
+#     -e '{"dtl_device_files": ["device-types/Cisco/catalyst-9300-24p.yaml"]}'
+#
+# Usage — use a local copy of the library:
+#   ansible-playbook import_device_types.yml \
+#     -e dtl_netbox_url=http://netbox:8080 \
+#     -e dtl_netbox_token=<token> \
+#     -e dtl_library_source=local \
+#     -e dtl_library_path=/srv/devicetype-library \
+#     -e '{"dtl_manufacturers": ["Juniper"]}'
+#
+# Requires pynetbox on the controller:
+#   pip install pynetbox
+- name: Import NetBox device types
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - role: device_type_importer

@@ -2,3 +2,5 @@
 collections:
   - name: community.docker
     version: ">=3.10.0"
+  - name: netbox.netbox
+    version: ">=3.20.0"

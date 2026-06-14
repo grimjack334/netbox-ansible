@@ -1,0 +1,24 @@
+---
+- name: Clone / update devicetype-library from GitHub
+  ansible.builtin.git:
+    repo: "{{ dtl_library_repo }}"
+    dest: "{{ dtl_library_path }}"
+    version: "{{ dtl_library_version }}"
+    depth: 1
+    update: true
+  when: dtl_library_source == 'github'
+
+- name: Verify local library path exists
+  ansible.builtin.stat:
+    path: "{{ dtl_library_path }}/device-types"
+  register: _lib_stat
+  when: dtl_library_source == 'local'
+
+- name: Assert local library path is valid
+  ansible.builtin.assert:
+    that: _lib_stat.stat.isdir
+    fail_msg: >-
+      dtl_library_path='{{ dtl_library_path }}' does not contain a
+      device-types/ directory. Check dtl_library_path or set
+      dtl_library_source=github to clone automatically.
+  when: dtl_library_source == 'local'

@@ -254,6 +254,51 @@ The Compose stack includes:
 
 All containers have `restart: unless-stopped` and Docker is enabled on boot, so the stack survives reboots automatically.
 
+## Importing device types
+
+`import_device_types.yml` clones the [netbox-community/devicetype-library](https://github.com/netbox-community/devicetype-library) and imports device types — including all component templates (interfaces, power ports, console ports, etc.) — directly into NetBox via the API.
+
+**Requirements:** `pynetbox` on the Ansible controller (`pip install pynetbox`).
+
+```bash
+# Import all devices from one or more manufacturers
+ansible-playbook import_device_types.yml \
+  -e dtl_netbox_url=http://netbox.example.com:8080 \
+  -e dtl_netbox_token=<api-token> \
+  -e '{"dtl_manufacturers": ["Cisco", "Dell", "Juniper"]}'
+
+# Import specific device type files
+ansible-playbook import_device_types.yml \
+  -e dtl_netbox_url=http://netbox.example.com:8080 \
+  -e dtl_netbox_token=<api-token> \
+  -e '{"dtl_device_files": ["device-types/Cisco/catalyst-9300-24p.yaml",
+                             "device-types/Dell/poweredge-r750.yaml"]}'
+
+# Use an existing local copy of the library
+ansible-playbook import_device_types.yml \
+  -e dtl_netbox_url=http://netbox.example.com:8080 \
+  -e dtl_netbox_token=<api-token> \
+  -e dtl_library_source=local \
+  -e dtl_library_path=/srv/devicetype-library \
+  -e '{"dtl_manufacturers": ["Juniper"]}'
+```
+
+| Variable | Default | Description |
+|---|---|---|
+| `dtl_netbox_url` | `http://localhost:8080` | NetBox base URL |
+| `dtl_netbox_token` | — | **Required.** API token with write access |
+| `dtl_netbox_validate_certs` | `true` | Verify TLS certificate |
+| `dtl_library_source` | `github` | `github` to clone, `local` to use existing path |
+| `dtl_library_repo` | community repo URL | Git repo to clone |
+| `dtl_library_version` | `main` | Branch, tag, or commit |
+| `dtl_library_path` | `/tmp/devicetype-library` | Local path to clone into / read from |
+| `dtl_manufacturers` | `[]` | Manufacturer names — import all their devices |
+| `dtl_device_files` | `[]` | Specific YAML files (relative to library root) |
+| `dtl_ignore_errors` | `false` | Continue past failures on individual files |
+
+Component types imported per device: interfaces, power ports, power outlets, console ports, console server ports, front ports, rear ports, device bays, module bays.  
+All operations are idempotent — re-running skips already-present objects.
+
 ## Radarr / custom list integration
 
 NetBox is not related to Radarr — see the sibling `movie-list` project for that.

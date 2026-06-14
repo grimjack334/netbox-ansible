@@ -1,0 +1,67 @@
+---
+- name: Assert required variables are set
+  ansible.builtin.assert:
+    that:
+      - dtl_netbox_url | length > 0
+      - dtl_netbox_token | length > 0
+      - (dtl_manufacturers | length > 0) or (dtl_device_files | length > 0)
+    fail_msg: >-
+      dtl_netbox_url, dtl_netbox_token, and at least one of
+      dtl_manufacturers or dtl_device_files must be set.
+
+# ── Fetch library ──────────────────────────────────────────────────────────────
+
+- name: Fetch devicetype-library
+  ansible.builtin.include_tasks: fetch_library.yml
+
+# ── Resolve file list ──────────────────────────────────────────────────────────
+
+- name: Find YAML files for requested manufacturers
+  ansible.builtin.find:
+    paths: "{{ dtl_library_path }}/device-types/{{ item }}"
+    patterns: "*.yaml,*.yml"
+    recurse: true
+  register: _mfr_results
+  loop: "{{ dtl_manufacturers }}"
+  when: dtl_manufacturers | length > 0
+
+- name: Build file list from manufacturer results
+  ansible.builtin.set_fact:
+    _dtl_files: >-
+      {{
+        _mfr_results.results
+        | default([])
+        | selectattr('files', 'defined')
+        | map(attribute='files')
+        | flatten
+        | map(attribute='path')
+        | list
+      }}
+  when: dtl_manufacturers | length > 0
+
+- name: Add explicitly specified device files
+  ansible.builtin.set_fact:
+    _dtl_files: >-
+      {{
+        (_dtl_files | default([])) +
+        (dtl_device_files | map('regex_replace', '^(?!/)', dtl_library_path + '/') | list)
+      }}
+  when: dtl_device_files | length > 0
+
+- name: Deduplicate file list
+  ansible.builtin.set_fact:
+    _dtl_files: "{{ _dtl_files | unique | sort }}"
+
+- name: Report files to import
+  ansible.builtin.debug:
+    msg: "Found {{ _dtl_files | length }} device type(s) to import."
+
+# ── Import ─────────────────────────────────────────────────────────────────────
+
+- name: Import device types
+  ansible.builtin.include_tasks: import_device_type.yml
+  loop: "{{ _dtl_files }}"
+  loop_control:
+    loop_var: _dtl_file
+    label: "{{ _dtl_file | basename }}"
+  ignore_errors: "{{ dtl_ignore_errors }}"

@@ -1,0 +1,27 @@
+---
+# NetBox connection
+dtl_netbox_url: "http://localhost:8080"
+dtl_netbox_token: ""          # required — a NetBox API token with write access
+dtl_netbox_validate_certs: true
+
+# Source for the devicetype-library.
+# 'github'  — clone/update from GitHub (requires git on the controller)
+# 'local'   — use an existing local copy at dtl_library_path
+dtl_library_source: github
+dtl_library_repo: "https://github.com/netbox-community/devicetype-library.git"
+dtl_library_version: main     # branch, tag, or commit
+dtl_library_path: /tmp/devicetype-library
+
+# What to import — at least one of these must be set.
+
+# Import ALL device types from one or more manufacturers.
+# The name must match a directory under device-types/ in the library
+# (case-sensitive, e.g. "Cisco", "Dell", "Juniper").
+dtl_manufacturers: []
+
+# Import specific device type YAML files relative to the library root.
+# e.g. "device-types/Cisco/catalyst-9300-24p.yaml"
+dtl_device_files: []
+
+# When true, continue importing remaining devices if one file fails.
+dtl_ignore_errors: false

@@ -1,0 +1,9 @@
+---
+galaxy_info:
+  role_name: device_type_importer
+  author: grimjack
+  description: Import device types from netbox-community/devicetype-library into NetBox
+  license: MIT
+  min_ansible_version: "2.14"
+
+dependencies: []
