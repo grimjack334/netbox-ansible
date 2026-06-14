@@ -3,8 +3,6 @@
   ansible.builtin.file:
     path: "{{ netbox_backup_dir }}"
     state: directory
-    owner: root
-    group: root
     mode: "0750"
 
 - name: Set backup timestamp
@@ -23,8 +21,6 @@
   ansible.builtin.copy:
     content: "{{ _pg_dump.stdout }}"
     dest: "{{ netbox_backup_dir }}/netbox-db-{{ _backup_ts }}.sql"
-    owner: root
-    group: root
     mode: "0640"
 
 # ── Media backup ───────────────────────────────────────────────────────────────

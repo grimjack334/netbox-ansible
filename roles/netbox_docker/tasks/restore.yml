@@ -38,10 +38,7 @@
   community.docker.docker_compose_v2:
     project_src: "{{ netbox_base_dir }}"
     project_name: "{{ netbox_compose_project }}"
-    services:
-      - netbox
-      - netbox-worker
-      - netbox-housekeeping
+    services: "{{ netbox_app_services }}"
     state: stopped
 
 # ── Restore database ───────────────────────────────────────────────────────────
@@ -101,7 +98,7 @@
 
 - name: Wait for NetBox to become healthy
   ansible.builtin.uri:
-    url: "http://{{ ansible_host | default('127.0.0.1') }}:{{ netbox_http_port }}/api/"
+    url: "http://{{ ansible_host | default('127.0.0.1') }}:{{ netbox_http_port }}/login/"
     method: GET
     status_code: 200
   register: _health

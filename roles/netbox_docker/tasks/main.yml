@@ -125,7 +125,7 @@
 
 - name: Wait for NetBox to become healthy
   ansible.builtin.uri:
-    url: "http://{{ ansible_host | default('127.0.0.1') }}:{{ netbox_http_port }}/api/"
+    url: "http://{{ ansible_host | default('127.0.0.1') }}:{{ netbox_http_port }}/login/"
     method: GET
     status_code: 200
   register: _health

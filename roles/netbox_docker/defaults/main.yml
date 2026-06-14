@@ -90,3 +90,9 @@ netbox_backup_keep: 7         # number of backups to retain (0 = keep all)
 # Restore settings — set these when running restore.yml.
 netbox_restore_backup: ""     # required: path to .sql file on the target host
 netbox_restore_media: ""      # optional: path to media .tar.gz on the target host
+
+# Application services to stop during restore (leave postgres + redis out).
+netbox_app_services:
+  - netbox
+  - netbox-worker
+  - netbox-housekeeping
