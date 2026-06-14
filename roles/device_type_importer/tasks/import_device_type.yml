@@ -86,7 +86,7 @@
       device_type: "{{ _dt.slug }}"
       name: "{{ item.name }}"
       type: "{{ item.type | default(omit) }}"
-      power_port: "{{ item.power_port | default(omit) }}"
+      power_port_template: "{{ item.power_port | default(omit) }}"
       feed_leg: "{{ item.feed_leg | default(omit) }}"
     state: present
   loop: "{{ _dt['power-outlets'] | default([]) }}"
@@ -94,7 +94,7 @@
     label: "{{ item.name }}"
 
 - name: "Interface templates — {{ _dt.model }}"
-  netbox.netbox.netbox_interface_template:
+  netbox.netbox.netbox_device_interface_template:
     netbox_url: "{{ dtl_netbox_url }}"
     netbox_token: "{{ dtl_netbox_token }}"
     validate_certs: "{{ dtl_netbox_validate_certs }}"
@@ -153,15 +153,23 @@
     label: "{{ item.name }}"
 
 - name: "Module bay templates — {{ _dt.model }}"
-  netbox.netbox.netbox_module_bay_template:
-    netbox_url: "{{ dtl_netbox_url }}"
-    netbox_token: "{{ dtl_netbox_token }}"
-    validate_certs: "{{ dtl_netbox_validate_certs }}"
-    data:
-      device_type: "{{ _dt.slug }}"
+  ansible.builtin.uri:
+    url: "{{ dtl_netbox_url }}/api/dcim/module-bay-templates/"
+    method: POST
+    headers:
+      Authorization: "Token {{ dtl_netbox_token }}"
+      Content-Type: application/json
+    body_format: json
+    body:
+      device_type: {slug: "{{ _dt.slug }}"}
       name: "{{ item.name }}"
       position: "{{ item.position | default(omit) }}"
-    state: present
+    validate_certs: "{{ dtl_netbox_validate_certs }}"
+    status_code: [201, 400]
+  register: _mbt_result
+  failed_when: >-
+    _mbt_result.status == 400 and
+    'already exists' not in (_mbt_result.json | to_json)
   loop: "{{ _dt['module-bays'] | default([]) }}"
   loop_control:
     label: "{{ item.name }}"

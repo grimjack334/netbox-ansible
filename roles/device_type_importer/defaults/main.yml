@@ -9,7 +9,7 @@ dtl_netbox_validate_certs: true
 # 'local'   — use an existing local copy at dtl_library_path
 dtl_library_source: github
 dtl_library_repo: "https://github.com/netbox-community/devicetype-library.git"
-dtl_library_version: main     # branch, tag, or commit
+dtl_library_version: master   # branch, tag, or commit
 dtl_library_path: /tmp/devicetype-library
 
 # What to import — at least one of these must be set.
