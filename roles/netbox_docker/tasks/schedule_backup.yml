@@ -31,3 +31,38 @@
     state: started
     enabled: true
     daemon_reload: true
+
+# ── Failure notifications (optional) ──────────────────────────────────────────
+
+- name: Deploy backup failure notify script
+  ansible.builtin.template:
+    src: netbox-backup-notify.py.j2
+    dest: "{{ netbox_backup_notify_script_path }}"
+    owner: root
+    group: root
+    mode: "0750"
+  when: netbox_backup_notify_email | length > 0
+
+- name: Deploy backup failure notify service unit
+  ansible.builtin.template:
+    src: netbox-backup-notify.service.j2
+    dest: /etc/systemd/system/netbox-backup-notify.service
+    owner: root
+    group: root
+    mode: "0644"
+  when: netbox_backup_notify_email | length > 0
+  notify: reload systemd
+
+- name: Remove notify artefacts when notifications disabled
+  when: netbox_backup_notify_email | length == 0
+  block:
+    - name: Remove notify script
+      ansible.builtin.file:
+        path: "{{ netbox_backup_notify_script_path }}"
+        state: absent
+
+    - name: Remove notify service unit
+      ansible.builtin.file:
+        path: /etc/systemd/system/netbox-backup-notify.service
+        state: absent
+      notify: reload systemd

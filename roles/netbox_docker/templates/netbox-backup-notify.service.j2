@@ -1,0 +1,12 @@
+# Managed by Ansible — do not edit manually
+[Unit]
+Description=NetBox backup failure notification
+# Prevent notification loops if the notify script itself fails
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+ExecStart={{ netbox_backup_notify_script_path }}
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=netbox-backup-notify

@@ -98,6 +98,11 @@ netbox_backup_on_calendar: "*-*-* 02:00:00"   # systemd OnCalendar — daily at 
 netbox_backup_random_delay: "10min"            # spread load on multi-host setups
 netbox_backup_script_path: /usr/local/bin/netbox-backup
 
+# Backup failure notifications.
+# Set netbox_backup_notify_email to enable — uses netbox_email_* for SMTP.
+netbox_backup_notify_email: ""
+netbox_backup_notify_script_path: /usr/local/bin/netbox-backup-notify
+
 # Application services to stop during restore (leave postgres + redis out).
 netbox_app_services:
   - netbox

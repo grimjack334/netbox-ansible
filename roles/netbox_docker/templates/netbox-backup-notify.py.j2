@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+# Managed by Ansible — do not edit manually
+import smtplib
+import subprocess
+import socket
+import sys
+from email.message import EmailMessage
+from datetime import datetime
+
+SMTP_SERVER = "{{ netbox_email_server or 'localhost' }}"
+SMTP_PORT   = int("{{ netbox_email_port }}")
+SMTP_USER   = "{{ netbox_email_username }}"
+SMTP_PASS   = "{{ netbox_email_password }}"
+FROM_ADDR   = "{{ netbox_email_from if netbox_email_from else 'netbox-backup@' + ansible_hostname }}"
+TO_ADDR     = "{{ netbox_backup_notify_email }}"
+HOST        = socket.getfqdn()
+
+journal = subprocess.run(
+    ["journalctl", "-u", "netbox-backup", "-n", "100",
+     "--no-pager", "--output=short"],
+    capture_output=True, text=True,
+).stdout
+
+msg = EmailMessage()
+msg["Subject"] = f"[NetBox] Backup failed on {HOST}"
+msg["From"]    = FROM_ADDR
+msg["To"]      = TO_ADDR
+msg.set_content(
+    f"The NetBox backup job failed at "
+    f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.\n\n"
+    f"Host: {HOST}\n\n"
+    f"--- Last 100 journal lines ---\n{journal}"
+)
+
+try:
+    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as s:
+{% if netbox_email_username %}
+        s.starttls()
+        s.login(SMTP_USER, SMTP_PASS)
+{% endif %}
+        s.send_message(msg)
+    print(f"Failure notification sent to {TO_ADDR}")
+except Exception as e:
+    print(f"Failed to send notification: {e}", file=sys.stderr)
+    sys.exit(1)

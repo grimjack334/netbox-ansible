@@ -4,6 +4,9 @@ Description=NetBox backup
 Documentation=https://github.com/netbox-community/netbox-docker
 Wants=docker.service
 After=docker.service
+{% if netbox_backup_notify_email %}
+OnFailure=netbox-backup-notify.service
+{% endif %}
 
 [Service]
 Type=oneshot

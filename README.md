@@ -213,6 +213,24 @@ Then re-run `ansible-playbook playbook.yml`. This deploys:
 - `netbox-backup.service` — oneshot unit, logs to journald
 - `netbox-backup.timer` — fires on schedule with `Persistent=true` (catches missed runs after reboots)
 
+### Failure notifications
+
+Set `netbox_backup_notify_email` to receive an email when a backup fails. The same `netbox_email_*` SMTP settings used by NetBox are reused:
+
+```yaml
+netbox_backup_notify_email: "ops@example.com"
+
+netbox_email_server: smtp.example.com
+netbox_email_port: 587
+netbox_email_username: alerts@example.com
+netbox_email_password: !vault |
+  ...
+netbox_email_from: alerts@example.com
+```
+
+The email subject is `[NetBox] Backup failed on <hostname>` and the body contains the last 100 journal lines from `netbox-backup.service`.  
+Leave `netbox_backup_notify_email: ""` (the default) to disable.
+
 Useful commands on the target host:
 
 ```bash
