@@ -1,0 +1,22 @@
+---
+# Restore NetBox from a backup created by backup.yml.
+#
+# Usage:
+#   ansible-playbook restore.yml \
+#     -e netbox_restore_backup=/opt/netbox-backups/netbox-db-20260614T120000.sql
+#
+#   # With media restore:
+#   ansible-playbook restore.yml \
+#     -e netbox_restore_backup=/opt/netbox-backups/netbox-db-20260614T120000.sql \
+#     -e netbox_restore_media=/opt/netbox-backups/netbox-media-20260614T120000.tar.gz
+#
+# WARNING: this drops and recreates the NetBox database.
+#          Ensure you have a current backup before restoring.
+- name: Restore NetBox
+  hosts: netbox
+  become: true
+  tasks:
+    - name: Run restore
+      ansible.builtin.include_role:
+        name: netbox_docker
+        tasks_from: restore

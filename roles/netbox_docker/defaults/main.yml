@@ -82,3 +82,11 @@ netbox_update: false
 # Take a pg_dump backup before updating. Backups are written to netbox_backup_dir.
 netbox_pre_update_backup: true
 netbox_backup_dir: /opt/netbox-backups
+
+# Backup settings (used by backup.yml and pre-update backup).
+netbox_backup_media: true     # also archive the media volume
+netbox_backup_keep: 7         # number of backups to retain (0 = keep all)
+
+# Restore settings — set these when running restore.yml.
+netbox_restore_backup: ""     # required: path to .sql file on the target host
+netbox_restore_media: ""      # optional: path to media .tar.gz on the target host

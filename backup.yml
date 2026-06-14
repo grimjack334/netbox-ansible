@@ -1,0 +1,17 @@
+---
+# Back up NetBox database (and optionally media files).
+#
+# Usage:
+#   ansible-playbook backup.yml
+#   ansible-playbook backup.yml -e netbox_backup_media=false
+#   ansible-playbook backup.yml -e netbox_backup_keep=14
+#
+# Backups are written to netbox_backup_dir (default: /opt/netbox-backups).
+- name: Backup NetBox
+  hosts: netbox
+  become: true
+  tasks:
+    - name: Run backup
+      ansible.builtin.include_role:
+        name: netbox_docker
+        tasks_from: backup

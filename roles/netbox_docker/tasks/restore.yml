@@ -1,0 +1,133 @@
+---
+# ── Pre-flight checks ──────────────────────────────────────────────────────────
+
+- name: Stat database backup file
+  ansible.builtin.stat:
+    path: "{{ netbox_restore_backup }}"
+  register: _restore_stat
+
+- name: Assert database backup file exists
+  ansible.builtin.assert:
+    that:
+      - netbox_restore_backup | length > 0
+      - _restore_stat.stat.exists
+      - _restore_stat.stat.isreg
+    fail_msg: >-
+      netbox_restore_backup='{{ netbox_restore_backup }}' does not exist
+      or is not a regular file. Pass the full path to a .sql backup file.
+
+- name: Stat media backup file
+  ansible.builtin.stat:
+    path: "{{ netbox_restore_media }}"
+  register: _media_stat
+  when: netbox_restore_media | length > 0
+
+- name: Assert media backup file exists
+  ansible.builtin.assert:
+    that:
+      - _media_stat.stat.exists
+      - _media_stat.stat.isreg
+    fail_msg: >-
+      netbox_restore_media='{{ netbox_restore_media }}' does not exist
+      or is not a regular file.
+  when: netbox_restore_media | length > 0
+
+# ── Stop application services (leave postgres + redis running) ─────────────────
+
+- name: Stop NetBox application containers
+  community.docker.docker_compose_v2:
+    project_src: "{{ netbox_base_dir }}"
+    project_name: "{{ netbox_compose_project }}"
+    services:
+      - netbox
+      - netbox-worker
+      - netbox-housekeeping
+    state: stopped
+
+# ── Restore database ───────────────────────────────────────────────────────────
+
+- name: Copy backup SQL into postgres container
+  ansible.builtin.command:
+    cmd: >-
+      docker cp {{ netbox_restore_backup }}
+      {{ netbox_compose_project }}-postgres-1:/tmp/netbox-restore.sql
+  changed_when: true
+
+- name: Drop existing NetBox database
+  community.docker.docker_container_exec:
+    container: "{{ netbox_compose_project }}-postgres-1"
+    command: >-
+      psql -U {{ netbox_db_user }} postgres
+      -c "DROP DATABASE IF EXISTS {{ netbox_db_name }}"
+
+- name: Create fresh NetBox database
+  community.docker.docker_container_exec:
+    container: "{{ netbox_compose_project }}-postgres-1"
+    command: >-
+      psql -U {{ netbox_db_user }} postgres
+      -c "CREATE DATABASE {{ netbox_db_name }} OWNER {{ netbox_db_user }}"
+
+- name: Restore database from backup
+  community.docker.docker_container_exec:
+    container: "{{ netbox_compose_project }}-postgres-1"
+    command: >-
+      psql -U {{ netbox_db_user }} -d {{ netbox_db_name }}
+      -f /tmp/netbox-restore.sql
+
+- name: Remove restore file from postgres container
+  community.docker.docker_container_exec:
+    container: "{{ netbox_compose_project }}-postgres-1"
+    command: rm /tmp/netbox-restore.sql
+
+# ── Restore media ──────────────────────────────────────────────────────────────
+
+- name: Restore media files via temporary container
+  ansible.builtin.command:
+    cmd: >-
+      docker run --rm
+      -v {{ netbox_compose_project }}_netbox-media:/media
+      -v {{ netbox_restore_media }}:/backup.tar.gz:ro
+      alpine tar xzf /backup.tar.gz --strip-components=1 -C /media
+  changed_when: true
+  when: netbox_restore_media | length > 0
+
+# ── Bring services back up ─────────────────────────────────────────────────────
+
+- name: Start NetBox stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ netbox_base_dir }}"
+    project_name: "{{ netbox_compose_project }}"
+    state: present
+
+- name: Wait for NetBox to become healthy
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host | default('127.0.0.1') }}:{{ netbox_http_port }}/api/"
+    method: GET
+    status_code: 200
+  register: _health
+  until: _health.status == 200
+  retries: 30
+  delay: 10
+
+# ── Post-restore migrations ────────────────────────────────────────────────────
+
+- name: Run database migrations
+  community.docker.docker_container_exec:
+    container: "{{ netbox_compose_project }}-netbox-1"
+    command: python /opt/netbox/netbox/manage.py migrate --no-input
+  register: _migrate
+  changed_when: "'No migrations to apply' not in _migrate.stdout"
+
+- name: Show migration output
+  ansible.builtin.debug:
+    msg: "{{ _migrate.stdout_lines }}"
+  when: _migrate.stdout_lines | length > 0
+
+- name: Report restore complete
+  ansible.builtin.debug:
+    msg: >-
+      Restore complete. Database loaded from {{ netbox_restore_backup }}.
+      {{
+        ' Media restored from ' + netbox_restore_media + '.'
+        if netbox_restore_media | length > 0 else ''
+      }}

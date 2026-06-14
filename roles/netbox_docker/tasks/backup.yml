@@ -1,0 +1,107 @@
+---
+- name: Create backup directory
+  ansible.builtin.file:
+    path: "{{ netbox_backup_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Set backup timestamp
+  ansible.builtin.set_fact:
+    _backup_ts: "{{ ansible_facts['date_time']['iso8601_basic_short'] }}"
+
+# ── Database backup ────────────────────────────────────────────────────────────
+
+- name: Dump NetBox database
+  community.docker.docker_container_exec:
+    container: "{{ netbox_compose_project }}-postgres-1"
+    command: pg_dump -U {{ netbox_db_user }} {{ netbox_db_name }}
+  register: _pg_dump
+
+- name: Write database backup to disk
+  ansible.builtin.copy:
+    content: "{{ _pg_dump.stdout }}"
+    dest: "{{ netbox_backup_dir }}/netbox-db-{{ _backup_ts }}.sql"
+    owner: root
+    group: root
+    mode: "0640"
+
+# ── Media backup ───────────────────────────────────────────────────────────────
+
+- name: Back up media files
+  when: netbox_backup_media | bool
+  block:
+    - name: Archive media directory inside netbox container
+      community.docker.docker_container_exec:
+        container: "{{ netbox_compose_project }}-netbox-1"
+        command: tar czf /tmp/netbox-media-backup.tar.gz -C /opt/netbox/netbox media
+
+    - name: Copy media archive from container to host
+      ansible.builtin.command:
+        cmd: >-
+          docker cp {{ netbox_compose_project }}-netbox-1:/tmp/netbox-media-backup.tar.gz
+          {{ netbox_backup_dir }}/netbox-media-{{ _backup_ts }}.tar.gz
+      changed_when: true
+
+    - name: Remove temp archive from container
+      community.docker.docker_container_exec:
+        container: "{{ netbox_compose_project }}-netbox-1"
+        command: rm /tmp/netbox-media-backup.tar.gz
+
+# ── Retention ─────────────────────────────────────────────────────────────────
+
+- name: Prune old database backups
+  when: netbox_backup_keep | int > 0
+  block:
+    - name: Find existing database backups
+      ansible.builtin.find:
+        paths: "{{ netbox_backup_dir }}"
+        patterns: "netbox-db-*.sql"
+      register: _db_backups
+
+    - name: Delete oldest database backups beyond retention limit
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: >-
+        {{
+          (_db_backups.files | sort(attribute='mtime'))
+          [: (_db_backups.files | length) - (netbox_backup_keep | int)]
+        }}
+      when: _db_backups.files | length > netbox_backup_keep | int
+
+- name: Prune old media backups
+  when:
+    - netbox_backup_media | bool
+    - netbox_backup_keep | int > 0
+  block:
+    - name: Find existing media backups
+      ansible.builtin.find:
+        paths: "{{ netbox_backup_dir }}"
+        patterns: "netbox-media-*.tar.gz"
+      register: _media_backups
+
+    - name: Delete oldest media backups beyond retention limit
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: >-
+        {{
+          (_media_backups.files | sort(attribute='mtime'))
+          [: (_media_backups.files | length) - (netbox_backup_keep | int)]
+        }}
+      when: _media_backups.files | length > netbox_backup_keep | int
+
+# ── Summary ────────────────────────────────────────────────────────────────────
+
+- name: Report backup result
+  ansible.builtin.debug:
+    msg: "{{ _summary }}"
+  vars:
+    _summary: >-
+      {{
+        ['Database: ' + netbox_backup_dir + '/netbox-db-' + _backup_ts + '.sql']
+        + (['Media: ' + netbox_backup_dir + '/netbox-media-' + _backup_ts + '.tar.gz']
+           if netbox_backup_media | bool else ['Media: skipped'])
+      }}
