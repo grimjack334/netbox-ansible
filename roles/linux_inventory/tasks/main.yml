@@ -1,0 +1,110 @@
+---
+# ── Normalize facts ────────────────────────────────────────────────────────────
+# Capture all needed facts into role-prefixed vars before any delegate_to so
+# that delegated tasks can reference them without hostvars[] indirection.
+
+- name: Normalize host facts
+  ansible.builtin.set_fact:
+    _li_hostname: "{{ ansible_hostname }}"
+    _li_is_vm: "{{ ansible_virtualization_role | default('NA') == 'guest' }}"
+    _li_platform_name: "{{ ansible_distribution }} {{ ansible_distribution_version }}"
+    _li_vcpus: "{{ ansible_processor_vcpus | int }}"
+    _li_memory_mb: "{{ ansible_memtotal_mb | int }}"
+    _li_manufacturer: >-
+      {{
+        ansible_system_vendor | default('Generic')
+        | regex_replace(',? Inc\.?$|,? LLC\.?$|,? Ltd\.?$|,? Corp\.?$', '')
+        | trim
+      }}
+    _li_model: "{{ ansible_product_name | default('Generic Server') }}"
+    _li_serial: >-
+      {{
+        ansible_product_serial
+        if ansible_product_serial | default('') not in
+           ['', 'None', 'Not Specified', 'To Be Filled By O.E.M.', 'Default string']
+        else ''
+      }}
+    _li_interfaces: >-
+      {{
+        ansible_interfaces
+        | reject('match', linux_inventory_skip_iface_re)
+        | list
+      }}
+
+- name: Derive slugs
+  ansible.builtin.set_fact:
+    _li_manufacturer_slug: >-
+      {{ _li_manufacturer | lower | regex_replace('[^a-z0-9]+', '-') | regex_replace('^-+|-+$', '') }}
+    _li_model_slug: >-
+      {{ _li_model | lower | regex_replace('[^a-z0-9]+', '-') | regex_replace('^-+|-+$', '') }}
+    _li_platform_slug: >-
+      {{ _li_platform_name | lower | regex_replace('[^a-z0-9]+', '-') | regex_replace('^-+|-+$', '') }}
+
+# ── Ensure shared NetBox objects exist ─────────────────────────────────────────
+
+- name: Ensure platform exists
+  netbox.netbox.netbox_platform:
+    netbox_url: "{{ linux_inventory_netbox_url }}"
+    netbox_token: "{{ linux_inventory_netbox_token }}"
+    validate_certs: "{{ linux_inventory_netbox_validate_certs }}"
+    data:
+      name: "{{ _li_platform_name }}"
+      slug: "{{ _li_platform_slug }}"
+    state: present
+  delegate_to: localhost
+
+- name: Ensure manufacturer exists
+  netbox.netbox.netbox_manufacturer:
+    netbox_url: "{{ linux_inventory_netbox_url }}"
+    netbox_token: "{{ linux_inventory_netbox_token }}"
+    validate_certs: "{{ linux_inventory_netbox_validate_certs }}"
+    data:
+      name: "{{ _li_manufacturer }}"
+    state: present
+  delegate_to: localhost
+  when: not _li_is_vm | bool
+
+- name: Ensure device type exists
+  netbox.netbox.netbox_device_type:
+    netbox_url: "{{ linux_inventory_netbox_url }}"
+    netbox_token: "{{ linux_inventory_netbox_token }}"
+    validate_certs: "{{ linux_inventory_netbox_validate_certs }}"
+    data:
+      manufacturer:
+        slug: "{{ _li_manufacturer_slug }}"
+      model: "{{ _li_model }}"
+      slug: "{{ _li_model_slug }}"
+    state: present
+  delegate_to: localhost
+  when: not _li_is_vm | bool
+
+- name: Ensure device role exists
+  netbox.netbox.netbox_device_role:
+    netbox_url: "{{ linux_inventory_netbox_url }}"
+    netbox_token: "{{ linux_inventory_netbox_token }}"
+    validate_certs: "{{ linux_inventory_netbox_validate_certs }}"
+    data:
+      name: "{{ linux_inventory_device_role | capitalize }}"
+      slug: "{{ linux_inventory_device_role }}"
+      color: "0000ff"
+    state: present
+  delegate_to: localhost
+  when: not _li_is_vm | bool
+
+# ── Sync device or VM ──────────────────────────────────────────────────────────
+
+- name: Sync physical device
+  ansible.builtin.include_tasks: sync_device.yml
+  when: not _li_is_vm | bool
+
+- name: Sync virtual machine
+  ansible.builtin.include_tasks: sync_vm.yml
+  when: _li_is_vm | bool
+
+# ── Sync interfaces and IPs ────────────────────────────────────────────────────
+
+- name: Sync interfaces
+  ansible.builtin.include_tasks: sync_interfaces.yml
+  loop: "{{ _li_interfaces }}"
+  loop_control:
+    loop_var: _iface_name

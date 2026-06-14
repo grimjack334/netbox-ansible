@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  role_name: linux_inventory
+  author: grimjack
+  description: Gather Linux server facts and register them in NetBox
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Debian
+      versions: [bookworm]
+    - name: Ubuntu
+      versions: ["22.04", "24.04"]
+    - name: EL
+      versions: ["9"]
+    - name: Archlinux
+      versions: [all]
+dependencies: []

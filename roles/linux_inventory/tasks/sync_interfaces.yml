@@ -1,0 +1,89 @@
+---
+# _iface_name is provided by the calling loop in main.yml
+
+- name: Collect interface facts
+  ansible.builtin.set_fact:
+    _iface: "{{ vars['ansible_' + _iface_name] }}"
+
+- name: Create or update device interface
+  netbox.netbox.netbox_device_interface:
+    netbox_url: "{{ linux_inventory_netbox_url }}"
+    netbox_token: "{{ linux_inventory_netbox_token }}"
+    validate_certs: "{{ linux_inventory_netbox_validate_certs }}"
+    data:
+      device:
+        name: "{{ _li_hostname }}"
+      name: "{{ _iface_name }}"
+      type: "other"
+      mac_address: "{{ _iface.macaddress | default(omit) }}"
+      enabled: true
+    state: present
+  delegate_to: localhost
+  register: _nb_iface
+  when: not _li_is_vm | bool
+
+- name: Create or update VM interface
+  netbox.netbox.netbox_vm_interface:
+    netbox_url: "{{ linux_inventory_netbox_url }}"
+    netbox_token: "{{ linux_inventory_netbox_token }}"
+    validate_certs: "{{ linux_inventory_netbox_validate_certs }}"
+    data:
+      virtual_machine:
+        name: "{{ _li_hostname }}"
+      name: "{{ _iface_name }}"
+      mac_address: "{{ _iface.macaddress | default(omit) }}"
+      enabled: true
+    state: present
+  delegate_to: localhost
+  register: _nb_vm_iface
+  when: _li_is_vm | bool
+
+- name: Assign IPv4 address to device interface
+  netbox.netbox.netbox_ip_address:
+    netbox_url: "{{ linux_inventory_netbox_url }}"
+    netbox_token: "{{ linux_inventory_netbox_token }}"
+    validate_certs: "{{ linux_inventory_netbox_validate_certs }}"
+    data:
+      address: "{{ _iface.ipv4.address }}/{{ _iface.ipv4.prefix | default('24') }}"
+      status: active
+      assigned_object:
+        name: "{{ _iface_name }}"
+        device: "{{ _li_hostname }}"
+    state: present
+  delegate_to: localhost
+  when:
+    - not _li_is_vm | bool
+    - _iface.ipv4 is defined and _iface.ipv4.address is defined
+
+- name: Assign IPv4 address to VM interface
+  netbox.netbox.netbox_ip_address:
+    netbox_url: "{{ linux_inventory_netbox_url }}"
+    netbox_token: "{{ linux_inventory_netbox_token }}"
+    validate_certs: "{{ linux_inventory_netbox_validate_certs }}"
+    data:
+      address: "{{ _iface.ipv4.address }}/{{ _iface.ipv4.prefix | default('24') }}"
+      status: active
+      assigned_object:
+        name: "{{ _iface_name }}"
+        virtual_machine: "{{ _li_hostname }}"
+    state: present
+  delegate_to: localhost
+  when:
+    - _li_is_vm | bool
+    - _iface.ipv4 is defined and _iface.ipv4.address is defined
+
+- name: Assign secondary IPv4 addresses to device interface
+  netbox.netbox.netbox_ip_address:
+    netbox_url: "{{ linux_inventory_netbox_url }}"
+    netbox_token: "{{ linux_inventory_netbox_token }}"
+    validate_certs: "{{ linux_inventory_netbox_validate_certs }}"
+    data:
+      address: "{{ item.address }}/{{ item.prefix | default('24') }}"
+      status: active
+      assigned_object:
+        name: "{{ _iface_name }}"
+        device: "{{ _li_hostname }}"
+    state: present
+  delegate_to: localhost
+  when: not _li_is_vm | bool
+  loop: "{{ _iface.ipv4_secondaries | default([]) }}"

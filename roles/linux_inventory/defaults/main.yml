@@ -1,0 +1,20 @@
+---
+# NetBox connection — override in group_vars or vault
+linux_inventory_netbox_url: ""
+linux_inventory_netbox_token: ""
+linux_inventory_netbox_validate_certs: true
+
+# Required: slug of the NetBox site to assign hosts to
+linux_inventory_site: ""
+
+# Slug of the device role assigned to physical servers
+linux_inventory_device_role: server
+
+# Slug of the NetBox cluster for VMs (required when host is a VM)
+linux_inventory_cluster: ""
+
+# Status applied to all created objects
+linux_inventory_status: active
+
+# Interface names matching these patterns are skipped
+linux_inventory_skip_iface_re: "^(lo|docker.*|veth.*|br-.*|virbr.*|tun.*|tap.*)$"

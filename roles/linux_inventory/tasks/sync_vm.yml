@@ -1,0 +1,19 @@
+---
+- name: Create or update virtual machine
+  netbox.netbox.netbox_virtual_machine:
+    netbox_url: "{{ linux_inventory_netbox_url }}"
+    netbox_token: "{{ linux_inventory_netbox_token }}"
+    validate_certs: "{{ linux_inventory_netbox_validate_certs }}"
+    data:
+      name: "{{ _li_hostname }}"
+      site:
+        slug: "{{ linux_inventory_site }}"
+      cluster:
+        name: "{{ linux_inventory_cluster }}"
+      platform:
+        slug: "{{ _li_platform_slug }}"
+      status: "{{ linux_inventory_status }}"
+      vcpus: "{{ _li_vcpus }}"
+      memory: "{{ _li_memory_mb }}"
+    state: present
+  delegate_to: localhost

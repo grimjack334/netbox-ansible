@@ -1,0 +1,22 @@
+---
+# Collects facts from Linux hosts and registers them in NetBox.
+# Physical servers are created as Devices; VMs are created as Virtual Machines.
+# Interfaces and IP addresses are synced for each host.
+#
+# Required vars (set in group_vars or pass with -e):
+#   linux_inventory_netbox_url
+#   linux_inventory_netbox_token
+#   linux_inventory_site          # NetBox site slug
+#   linux_inventory_cluster       # NetBox cluster name (VMs only)
+#
+# Example:
+#   ansible-playbook linux_inventory.yml \
+#     -e linux_inventory_netbox_url=http://netbox:8080 \
+#     -e linux_inventory_netbox_token=<token> \
+#     -e linux_inventory_site=home-lab
+- name: Inventory Linux servers into NetBox
+  hosts: linux_servers
+  gather_facts: true
+  become: false
+  roles:
+    - role: linux_inventory

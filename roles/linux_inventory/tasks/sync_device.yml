@@ -1,0 +1,20 @@
+---
+- name: Create or update device
+  netbox.netbox.netbox_device:
+    netbox_url: "{{ linux_inventory_netbox_url }}"
+    netbox_token: "{{ linux_inventory_netbox_token }}"
+    validate_certs: "{{ linux_inventory_netbox_validate_certs }}"
+    data:
+      name: "{{ _li_hostname }}"
+      device_type:
+        slug: "{{ _li_model_slug }}"
+      device_role:
+        slug: "{{ linux_inventory_device_role }}"
+      site:
+        slug: "{{ linux_inventory_site }}"
+      platform:
+        slug: "{{ _li_platform_slug }}"
+      status: "{{ linux_inventory_status }}"
+      serial: "{{ _li_serial if _li_serial else omit }}"
+    state: present
+  delegate_to: localhost
