@@ -1,0 +1,21 @@
+# Managed by Ansible — do not edit manually
+{% if netbox_plugins %}
+PLUGINS = [
+{% for plugin in netbox_plugins %}
+    '{{ plugin.name }}',
+{% endfor %}
+]
+
+PLUGINS_CONFIG = {
+{% for plugin in netbox_plugins %}
+{% if plugin.config is defined and plugin.config %}
+    '{{ plugin.name }}': {{ plugin.config | to_json }},
+{% else %}
+    '{{ plugin.name }}': {},
+{% endif %}
+{% endfor %}
+}
+{% else %}
+PLUGINS = []
+PLUGINS_CONFIG = {}
+{% endif %}

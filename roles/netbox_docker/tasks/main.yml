@@ -1,0 +1,111 @@
+---
+- name: Include OS-specific prerequisites
+  ansible.builtin.include_tasks: "prereqs_{{ ansible_os_family | lower }}.yml"
+  failed_when: false  # skip if no OS-specific file; Docker assumed present
+
+- name: Create NetBox directory tree
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ netbox_base_dir }}"
+    - "{{ netbox_base_dir }}/configuration"
+    - "{{ netbox_base_dir }}/env"
+    - "{{ netbox_base_dir }}/media"
+    - "{{ netbox_base_dir }}/reports"
+    - "{{ netbox_base_dir }}/scripts"
+
+# ── Configuration files ────────────────────────────────────────────────────────
+
+- name: Template NetBox main configuration
+  ansible.builtin.template:
+    src: configuration/configuration.py.j2
+    dest: "{{ netbox_base_dir }}/configuration/configuration.py"
+    owner: root
+    group: root
+    mode: "0640"
+  notify: restart netbox
+
+- name: Template NetBox plugin configuration
+  ansible.builtin.template:
+    src: configuration/plugins.py.j2
+    dest: "{{ netbox_base_dir }}/configuration/plugins.py"
+    owner: root
+    group: root
+    mode: "0640"
+  notify: restart netbox
+
+- name: Template environment file
+  ansible.builtin.template:
+    src: env/netbox.env.j2
+    dest: "{{ netbox_base_dir }}/env/netbox.env"
+    owner: root
+    group: root
+    mode: "0640"
+  notify: restart netbox
+
+# ── Plugin image build ─────────────────────────────────────────────────────────
+
+- name: Template plugin requirements
+  ansible.builtin.template:
+    src: plugin_requirements.txt.j2
+    dest: "{{ netbox_base_dir }}/plugin_requirements.txt"
+    owner: root
+    group: root
+    mode: "0644"
+  when: netbox_build_image | bool
+  notify: rebuild netbox
+
+- name: Template Dockerfile for plugin image
+  ansible.builtin.template:
+    src: Dockerfile.j2
+    dest: "{{ netbox_base_dir }}/Dockerfile"
+    owner: root
+    group: root
+    mode: "0644"
+  when: netbox_build_image | bool
+  notify: rebuild netbox
+
+- name: Build custom NetBox image with plugins
+  community.docker.docker_image:
+    name: "{{ netbox_image_name }}"
+    tag: "{{ netbox_image_tag }}"
+    source: build
+    build:
+      path: "{{ netbox_base_dir }}"
+      pull: true
+      nocache: false
+    force_source: false
+  when: netbox_build_image | bool
+
+# ── Docker Compose ─────────────────────────────────────────────────────────────
+
+- name: Template docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ netbox_base_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart netbox
+
+- name: Deploy NetBox stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ netbox_base_dir }}"
+    project_name: "{{ netbox_compose_project }}"
+    state: present
+    pull: missing
+  register: _compose_result
+
+- name: Wait for NetBox to become healthy
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host | default('127.0.0.1') }}:{{ netbox_http_port }}/api/"
+    method: GET
+    status_code: 200
+  register: _health
+  until: _health.status == 200
+  retries: 30
+  delay: 10

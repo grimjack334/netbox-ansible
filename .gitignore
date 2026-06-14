@@ -1,0 +1,9 @@
+*.retry
+*.pyc
+__pycache__/
+.vault_pass
+vault.yml
+host_vars/*/vault.yml
+group_vars/*/vault.yml
+collections/
+roles/external/

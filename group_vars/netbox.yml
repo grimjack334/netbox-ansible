@@ -1,0 +1,30 @@
+---
+# Group-level overrides for the netbox host group.
+# Sensitive values (passwords, secret_key) should be stored in vault:
+#   ansible-vault encrypt_string 'my-secret' --name 'netbox_secret_key'
+
+netbox_version: "v4.2"
+netbox_http_port: 8080
+netbox_time_zone: "America/New_York"
+
+netbox_allowed_hosts:
+  - "netbox.example.com"
+  - "192.168.1.10"
+
+# Override these in vault or host_vars:
+# netbox_secret_key: !vault |
+#   $ANSIBLE_VAULT;1.1;AES256
+#   ...
+# netbox_db_password: !vault ...
+# netbox_superuser_password: !vault ...
+
+# Plugins — add or remove as needed.
+# To add more plugins:
+#   - pip: "netbox-topology-views"
+#     name: "netbox_topology_views"
+#     config:
+#       allow_coordinates_saving: true
+netbox_plugins:
+  - pip: "netbox-custom-objects"
+    name: "netbox_custom_objects"
+    config: {}

@@ -1,0 +1,6 @@
+---
+- name: Deploy NetBox in Docker
+  hosts: netbox
+  become: true
+  roles:
+    - role: netbox_docker

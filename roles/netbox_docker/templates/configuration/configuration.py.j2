@@ -1,0 +1,63 @@
+# Managed by Ansible — do not edit manually
+import re
+from pathlib import Path
+
+# Allowed hosts / Base URL
+ALLOWED_HOSTS = {{ netbox_allowed_hosts | to_json }}
+
+# Database
+DATABASE = {
+    'ENGINE': 'django.db.backends.postgresql',
+    'NAME': '{{ netbox_db_name }}',
+    'USER': '{{ netbox_db_user }}',
+    'PASSWORD': '{{ netbox_db_password }}',
+    'HOST': '{{ netbox_db_host }}',
+    'PORT': '{{ netbox_db_port }}',
+    'CONN_MAX_AGE': 300,
+}
+
+# Redis
+REDIS = {
+    'tasks': {
+        'HOST': '{{ netbox_redis_host }}',
+        'PORT': {{ netbox_redis_port }},
+        'PASSWORD': '{{ netbox_redis_password }}',
+        'DATABASE': {{ netbox_redis_db }},
+        'SSL': False,
+    },
+    'caching': {
+        'HOST': '{{ netbox_redis_cache_host }}',
+        'PORT': {{ netbox_redis_cache_port }},
+        'PASSWORD': '{{ netbox_redis_cache_password }}',
+        'DATABASE': {{ netbox_redis_cache_db }},
+        'SSL': False,
+    },
+}
+
+# Secret key
+SECRET_KEY = '{{ netbox_secret_key }}'
+
+# Superuser (created via init-container env vars — see netbox.env)
+# SUPERUSER_NAME / SUPERUSER_EMAIL / SUPERUSER_PASSWORD
+
+# Localisation
+TIME_ZONE = '{{ netbox_time_zone }}'
+
+{% if netbox_email_server %}
+# Email
+EMAIL = {
+    'SERVER': '{{ netbox_email_server }}',
+    'PORT': {{ netbox_email_port }},
+    'USERNAME': '{{ netbox_email_username }}',
+    'PASSWORD': '{{ netbox_email_password }}',
+    'USE_SSL': False,
+    'USE_TLS': False,
+    'TIMEOUT': 10,
+    'FROM_EMAIL': '{{ netbox_email_from }}',
+}
+{% endif %}
+
+# Media / static files (Docker-managed volumes)
+MEDIA_ROOT = '/opt/netbox/netbox/media'
+REPORTS_ROOT = '/opt/netbox/netbox/reports'
+SCRIPTS_ROOT = '/opt/netbox/netbox/scripts'

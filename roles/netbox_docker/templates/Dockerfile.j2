@@ -1,0 +1,5 @@
+FROM netboxcommunity/netbox:{{ netbox_version }}
+
+# Install plugins from plugin_requirements.txt into the NetBox virtualenv
+COPY plugin_requirements.txt /opt/netbox/local_requirements.txt
+RUN /opt/netbox/venv/bin/pip install --no-cache-dir -r /opt/netbox/local_requirements.txt

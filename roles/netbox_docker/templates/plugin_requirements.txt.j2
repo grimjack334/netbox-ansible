@@ -1,0 +1,7 @@
+# Managed by Ansible — do not edit manually
+{% for plugin in netbox_plugins %}
+{{ plugin.pip }}
+{% endfor %}
+{% for pkg in netbox_extra_packages %}
+{{ pkg }}
+{% endfor %}

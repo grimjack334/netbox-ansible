@@ -1,0 +1,70 @@
+---
+# NetBox version (image tag from netboxcommunity/netbox)
+netbox_version: "v4.2"
+
+# Where to deploy on the target host
+netbox_base_dir: /opt/netbox
+
+# HTTP port exposed on the host
+netbox_http_port: 8080
+
+netbox_time_zone: "UTC"
+netbox_allowed_hosts:
+  - "*"
+
+# Django secret key — override this in vault or host_vars (never commit plain text)
+netbox_secret_key: "CHANGEME-generate-with-openssl-rand-base64-45"
+
+# Superuser credentials created on first run
+netbox_superuser_name: admin
+netbox_superuser_email: admin@example.com
+netbox_superuser_password: "CHANGEME"
+netbox_superuser_api_token: ""   # leave empty to auto-generate
+
+# PostgreSQL
+netbox_db_host: postgres
+netbox_db_port: 5432
+netbox_db_name: netbox
+netbox_db_user: netbox
+netbox_db_password: "CHANGEME-db"
+
+# Redis (tasks)
+netbox_redis_host: redis
+netbox_redis_port: 6379
+netbox_redis_password: ""
+netbox_redis_db: 0
+
+# Redis (cache)
+netbox_redis_cache_host: redis-cache
+netbox_redis_cache_port: 6379
+netbox_redis_cache_password: ""
+netbox_redis_cache_db: 1
+
+# Email (optional)
+netbox_email_server: ""
+netbox_email_port: 25
+netbox_email_username: ""
+netbox_email_password: ""
+netbox_email_from: ""
+
+# Plugins to install and enable.
+# Each entry:
+#   pip:    pip-installable package name (required)
+#   name:   Python module name used in PLUGINS list (required)
+#   config: dict of plugin-specific settings (optional)
+netbox_plugins:
+  - pip: "netbox-custom-objects"
+    name: "netbox_custom_objects"
+    config: {}
+
+# Build a custom Docker image that bakes in plugins.
+# Set to false to skip custom image build (plugins list must be empty).
+netbox_build_image: "{{ netbox_plugins | length > 0 }}"
+netbox_image_name: "netbox-local"
+netbox_image_tag: "{{ netbox_version }}"
+
+# Extra pip packages to install alongside plugins (e.g. netbox-rest-api-haystack)
+netbox_extra_packages: []
+
+# Docker Compose project name
+netbox_compose_project: netbox

@@ -1,0 +1,31 @@
+---
+- name: Restart netbox
+  community.docker.docker_compose_v2:
+    project_src: "{{ netbox_base_dir }}"
+    project_name: "{{ netbox_compose_project }}"
+    services:
+      - netbox
+      - netbox-worker
+      - netbox-housekeeping
+    state: restarted
+  listen: restart netbox
+
+- name: Rebuild and restart netbox
+  block:
+    - name: Build custom image
+      community.docker.docker_image:
+        name: "{{ netbox_image_name }}"
+        tag: "{{ netbox_image_tag }}"
+        source: build
+        build:
+          path: "{{ netbox_base_dir }}"
+          pull: true
+          nocache: false
+        force_source: true
+
+    - name: Restart stack after rebuild
+      community.docker.docker_compose_v2:
+        project_src: "{{ netbox_base_dir }}"
+        project_name: "{{ netbox_compose_project }}"
+        state: restarted
+  listen: rebuild netbox

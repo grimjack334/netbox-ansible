@@ -1,0 +1,8 @@
+---
+# Derived image ref used in docker-compose — either the custom build or upstream
+netbox_image_ref: >-
+  {{
+    (netbox_image_name + ':' + netbox_image_tag)
+    if netbox_build_image | bool
+    else ('netboxcommunity/netbox:' + netbox_version)
+  }}

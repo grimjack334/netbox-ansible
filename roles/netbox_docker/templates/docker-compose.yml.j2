@@ -1,0 +1,126 @@
+# Managed by Ansible — do not edit manually
+---
+services:
+
+  netbox:
+    image: {{ netbox_image_ref }}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redis-cache:
+        condition: service_healthy
+    env_file: env/netbox.env
+    user: "unit:root"
+    healthcheck:
+      test: curl -f http://localhost:8080/api/ || exit 1
+      start_period: 90s
+      timeout: 3s
+      interval: 15s
+    volumes:
+      - ./configuration:/etc/netbox/config:z,ro
+      - netbox-media:/opt/netbox/netbox/media
+      - netbox-reports:/opt/netbox/netbox/reports
+      - netbox-scripts:/opt/netbox/netbox/scripts
+    ports:
+      - "{{ netbox_http_port }}:8080"
+    restart: unless-stopped
+
+  netbox-worker:
+    image: {{ netbox_image_ref }}
+    depends_on:
+      netbox:
+        condition: service_healthy
+    env_file: env/netbox.env
+    user: "unit:root"
+    command: /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py rqworker
+    volumes:
+      - ./configuration:/etc/netbox/config:z,ro
+      - netbox-media:/opt/netbox/netbox/media
+      - netbox-reports:/opt/netbox/netbox/reports
+      - netbox-scripts:/opt/netbox/netbox/scripts
+    healthcheck:
+      test: ps -aux | grep -v grep | grep -q rqworker || exit 1
+      start_period: 20s
+      timeout: 3s
+      interval: 15s
+    restart: unless-stopped
+
+  netbox-housekeeping:
+    image: {{ netbox_image_ref }}
+    depends_on:
+      netbox:
+        condition: service_healthy
+    env_file: env/netbox.env
+    user: "unit:root"
+    command: /opt/netbox/housekeeping.sh
+    volumes:
+      - ./configuration:/etc/netbox/config:z,ro
+      - netbox-media:/opt/netbox/netbox/media
+      - netbox-reports:/opt/netbox/netbox/reports
+      - netbox-scripts:/opt/netbox/netbox/scripts
+    restart: unless-stopped
+
+  postgres:
+    image: docker.io/postgres:16-alpine
+    environment:
+      POSTGRES_DB: "{{ netbox_db_name }}"
+      POSTGRES_USER: "{{ netbox_db_user }}"
+      POSTGRES_PASSWORD: "{{ netbox_db_password }}"
+    volumes:
+      - netbox-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -q -t 2 -d {{ netbox_db_name }} -U {{ netbox_db_user }}
+      start_period: 20s
+      timeout: 3s
+      interval: 15s
+    restart: unless-stopped
+
+  redis:
+    image: docker.io/redis:7-alpine
+    command: >
+      sh -c "redis-server
+      {% if netbox_redis_password %}
+      --requirepass {{ netbox_redis_password }}
+      {% endif %}
+      "
+    volumes:
+      - netbox-redis:/data
+    healthcheck:
+      test: >
+        sh -c "redis-cli
+        {% if netbox_redis_password %}-a {{ netbox_redis_password }}{% endif %}
+        ping | grep -q PONG"
+      start_period: 5s
+      timeout: 3s
+      interval: 15s
+    restart: unless-stopped
+
+  redis-cache:
+    image: docker.io/redis:7-alpine
+    command: >
+      sh -c "redis-server
+      {% if netbox_redis_cache_password %}
+      --requirepass {{ netbox_redis_cache_password }}
+      {% endif %}
+      "
+    volumes:
+      - netbox-redis-cache:/data
+    healthcheck:
+      test: >
+        sh -c "redis-cli
+        {% if netbox_redis_cache_password %}-a {{ netbox_redis_cache_password }}{% endif %}
+        ping | grep -q PONG"
+      start_period: 5s
+      timeout: 3s
+      interval: 15s
+    restart: unless-stopped
+
+volumes:
+  netbox-media:
+  netbox-postgres:
+  netbox-redis:
+  netbox-redis-cache:
+  netbox-reports:
+  netbox-scripts:
