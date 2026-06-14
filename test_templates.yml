@@ -1,0 +1,95 @@
+---
+# Local template smoke test — no become, no Docker, renders all templates to /tmp
+- name: Render templates smoke test
+  hosts: all
+  gather_facts: false
+  vars:
+    netbox_version: "v4.2"
+    netbox_base_dir: /tmp/netbox-test
+    netbox_http_port: 8181
+    netbox_time_zone: "America/New_York"
+    netbox_allowed_hosts: ["netbox.example.com", "192.168.1.10"]
+    netbox_secret_key: "testkey-abc123"
+    netbox_superuser_name: admin
+    netbox_superuser_email: admin@example.com
+    netbox_superuser_password: "testpass"
+    netbox_superuser_api_token: ""
+    netbox_db_host: postgres
+    netbox_db_port: 5432
+    netbox_db_name: netbox
+    netbox_db_user: netbox
+    netbox_db_password: "testdb"
+    netbox_redis_host: redis
+    netbox_redis_port: 6379
+    netbox_redis_password: ""
+    netbox_redis_db: 0
+    netbox_redis_cache_host: redis-cache
+    netbox_redis_cache_port: 6379
+    netbox_redis_cache_password: ""
+    netbox_redis_cache_db: 1
+    netbox_email_server: ""
+    netbox_email_port: 25
+    netbox_email_username: ""
+    netbox_email_password: ""
+    netbox_email_from: ""
+    netbox_plugins:
+      - pip: "netbox-custom-objects"
+        name: "netbox_custom_objects"
+        config: {}
+      - pip: "netbox-topology-views"
+        name: "netbox_topology_views"
+        config:
+          allow_coordinates_saving: true
+    netbox_extra_packages: []
+    netbox_build_image: true
+    netbox_image_name: "netbox-local"
+    netbox_image_tag: "v4.2"
+    netbox_image_ref: "netbox-local:v4.2"
+    netbox_compose_project: netbox
+
+  tasks:
+    - name: Create test directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - /tmp/netbox-test
+        - /tmp/netbox-test/configuration
+        - /tmp/netbox-test/env
+
+    - name: Render configuration.py
+      ansible.builtin.template:
+        src: roles/netbox_docker/templates/configuration/configuration.py.j2
+        dest: /tmp/netbox-test/configuration/configuration.py
+        mode: "0644"
+
+    - name: Render plugins.py
+      ansible.builtin.template:
+        src: roles/netbox_docker/templates/configuration/plugins.py.j2
+        dest: /tmp/netbox-test/configuration/plugins.py
+        mode: "0644"
+
+    - name: Render netbox.env
+      ansible.builtin.template:
+        src: roles/netbox_docker/templates/env/netbox.env.j2
+        dest: /tmp/netbox-test/env/netbox.env
+        mode: "0644"
+
+    - name: Render plugin_requirements.txt
+      ansible.builtin.template:
+        src: roles/netbox_docker/templates/plugin_requirements.txt.j2
+        dest: /tmp/netbox-test/plugin_requirements.txt
+        mode: "0644"
+
+    - name: Render Dockerfile
+      ansible.builtin.template:
+        src: roles/netbox_docker/templates/Dockerfile.j2
+        dest: /tmp/netbox-test/Dockerfile
+        mode: "0644"
+
+    - name: Render docker-compose.yml
+      ansible.builtin.template:
+        src: roles/netbox_docker/templates/docker-compose.yml.j2
+        dest: /tmp/netbox-test/docker-compose.yml
+        mode: "0644"

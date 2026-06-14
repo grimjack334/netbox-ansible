@@ -1,7 +1,10 @@
 ---
 - name: Include OS-specific prerequisites
-  ansible.builtin.include_tasks: "prereqs_{{ ansible_os_family | lower }}.yml"
-  failed_when: false  # skip if no OS-specific file; Docker assumed present
+  ansible.builtin.include_tasks: "{{ item }}"
+  with_first_found:
+    - files:
+        - "prereqs_{{ ansible_os_family | lower }}.yml"
+      skip: true
 
 - name: Create NetBox directory tree
   ansible.builtin.file:
