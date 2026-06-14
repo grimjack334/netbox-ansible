@@ -1,0 +1,35 @@
+---
+- name: Check if Docker is already installed
+  ansible.builtin.command: docker --version
+  register: _docker_check
+  changed_when: false
+  failed_when: false
+
+- name: Install Docker (RedHat family)
+  when: _docker_check.rc != 0
+  block:
+    - name: Install yum-utils
+      ansible.builtin.dnf:
+        name: yum-utils
+        state: present
+
+    - name: Add Docker CE repository
+      ansible.builtin.command:
+        cmd: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+        creates: /etc/yum.repos.d/docker-ce.repo
+
+    - name: Install Docker CE packages
+      ansible.builtin.dnf:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+
+    - name: Start and enable Docker service
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: true
