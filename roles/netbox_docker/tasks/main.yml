@@ -6,6 +6,12 @@
         - "prereqs_{{ ansible_os_family | lower }}.yml"
       skip: true
 
+- name: Ensure Docker service is started and enabled on boot
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: true
+
 - name: Add users to docker group for non-root access
   ansible.builtin.user:
     name: "{{ item }}"
