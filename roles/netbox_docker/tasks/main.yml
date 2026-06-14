@@ -6,6 +6,14 @@
         - "prereqs_{{ ansible_os_family | lower }}.yml"
       skip: true
 
+- name: Add users to docker group for non-root access
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: docker
+    append: true
+  loop: "{{ netbox_docker_users }}"
+  when: netbox_docker_users | length > 0
+
 - name: Create NetBox directory tree
   ansible.builtin.file:
     path: "{{ item }}"

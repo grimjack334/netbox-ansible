@@ -1,0 +1,24 @@
+---
+- name: Check if Docker is already installed
+  ansible.builtin.command: docker --version
+  register: _docker_check
+  changed_when: false
+  failed_when: false
+
+- name: Install Docker (Arch Linux)
+  when: _docker_check.rc != 0
+  block:
+    - name: Install Docker packages via pacman
+      community.general.pacman:
+        name:
+          - docker
+          - docker-buildx
+          - docker-compose
+        state: present
+        update_cache: true
+
+    - name: Start and enable Docker service
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: true

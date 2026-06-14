@@ -68,3 +68,8 @@ netbox_extra_packages: []
 
 # Docker Compose project name
 netbox_compose_project: netbox
+
+# Users to add to the docker group so they can run Docker without sudo.
+# Note: docker group membership is equivalent to root access on the host.
+# Leave empty to skip (root-only Docker is the default).
+netbox_docker_users: []
