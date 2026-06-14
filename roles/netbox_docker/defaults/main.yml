@@ -91,6 +91,13 @@ netbox_backup_keep: 7         # number of backups to retain (0 = keep all)
 netbox_restore_backup: ""     # required: path to .sql file on the target host
 netbox_restore_media: ""      # optional: path to media .tar.gz on the target host
 
+# Scheduled backup settings.
+# Set netbox_backup_schedule_enabled: true to install a systemd timer.
+netbox_backup_schedule_enabled: false
+netbox_backup_on_calendar: "*-*-* 02:00:00"   # systemd OnCalendar — daily at 2am
+netbox_backup_random_delay: "10min"            # spread load on multi-host setups
+netbox_backup_script_path: /usr/local/bin/netbox-backup
+
 # Application services to stop during restore (leave postgres + redis out).
 netbox_app_services:
   - netbox

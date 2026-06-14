@@ -1,0 +1,33 @@
+---
+- name: Deploy backup shell script
+  ansible.builtin.template:
+    src: netbox-backup.sh.j2
+    dest: "{{ netbox_backup_script_path }}"
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Deploy backup systemd service unit
+  ansible.builtin.template:
+    src: netbox-backup.service.j2
+    dest: /etc/systemd/system/netbox-backup.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload systemd
+
+- name: Deploy backup systemd timer unit
+  ansible.builtin.template:
+    src: netbox-backup.timer.j2
+    dest: /etc/systemd/system/netbox-backup.timer
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload systemd
+
+- name: Enable and start backup timer
+  ansible.builtin.systemd:
+    name: netbox-backup.timer
+    state: started
+    enabled: true
+    daemon_reload: true

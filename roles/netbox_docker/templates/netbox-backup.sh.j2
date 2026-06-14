@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Managed by Ansible — do not edit manually
+set -euo pipefail
+
+PROJECT="{{ netbox_compose_project }}"
+DB_USER="{{ netbox_db_user }}"
+DB_NAME="{{ netbox_db_name }}"
+BACKUP_DIR="{{ netbox_backup_dir }}"
+BACKUP_MEDIA={{ 'true' if netbox_backup_media | bool else 'false' }}
+KEEP={{ netbox_backup_keep | int }}
+
+TS=$(date +%Y%m%dT%H%M%S)
+
+mkdir -p "$BACKUP_DIR"
+
+echo "[netbox-backup] Starting backup at $TS"
+
+# ── Database ──────────────────────────────────────────────────────────────────
+
+DB_FILE="${BACKUP_DIR}/netbox-db-${TS}.sql"
+docker exec "${PROJECT}-postgres-1" \
+  pg_dump -U "$DB_USER" "$DB_NAME" > "$DB_FILE"
+chmod 640 "$DB_FILE"
+echo "[netbox-backup] Database: $DB_FILE ($(du -sh "$DB_FILE" | cut -f1))"
+
+# ── Media ─────────────────────────────────────────────────────────────────────
+
+if [[ "$BACKUP_MEDIA" == "true" ]]; then
+  MEDIA_FILE="${BACKUP_DIR}/netbox-media-${TS}.tar.gz"
+  docker exec "${PROJECT}-netbox-1" \
+    tar czf /tmp/netbox-media-backup.tar.gz -C /opt/netbox/netbox media
+  docker cp "${PROJECT}-netbox-1:/tmp/netbox-media-backup.tar.gz" "$MEDIA_FILE"
+  docker exec "${PROJECT}-netbox-1" rm /tmp/netbox-media-backup.tar.gz
+  echo "[netbox-backup] Media: $MEDIA_FILE ($(du -sh "$MEDIA_FILE" | cut -f1))"
+fi
+
+# ── Retention ─────────────────────────────────────────────────────────────────
+
+if [[ "$KEEP" -gt 0 ]]; then
+  # shellcheck disable=SC2012
+  EXCESS_DB=$(find "$BACKUP_DIR" -name 'netbox-db-*.sql' -printf '%T@ %p\n' \
+    | sort -n | head -n -"$KEEP" | awk '{print $2}')
+  if [[ -n "$EXCESS_DB" ]]; then
+    echo "$EXCESS_DB" | xargs rm
+    echo "[netbox-backup] Pruned old database backups"
+  fi
+
+  if [[ "$BACKUP_MEDIA" == "true" ]]; then
+    # shellcheck disable=SC2012
+    EXCESS_MEDIA=$(find "$BACKUP_DIR" -name 'netbox-media-*.tar.gz' -printf '%T@ %p\n' \
+      | sort -n | head -n -"$KEEP" | awk '{print $2}')
+    if [[ -n "$EXCESS_MEDIA" ]]; then
+      echo "$EXCESS_MEDIA" | xargs rm
+      echo "[netbox-backup] Pruned old media backups"
+    fi
+  fi
+fi
+
+echo "[netbox-backup] Done."

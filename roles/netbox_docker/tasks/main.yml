@@ -123,6 +123,10 @@
     pull: missing
   register: _compose_result
 
+- name: Configure automatic backup schedule
+  ansible.builtin.include_tasks: schedule_backup.yml
+  when: netbox_backup_schedule_enabled | bool
+
 - name: Wait for NetBox to become healthy
   ansible.builtin.uri:
     url: "http://{{ ansible_host | default('127.0.0.1') }}:{{ netbox_http_port }}/login/"

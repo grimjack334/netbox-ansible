@@ -1,4 +1,9 @@
 ---
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+  listen: reload systemd
+
 - name: Restart netbox
   community.docker.docker_compose_v2:
     project_src: "{{ netbox_base_dir }}"

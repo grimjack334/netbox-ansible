@@ -1,0 +1,13 @@
+# Managed by Ansible — do not edit manually
+[Unit]
+Description=NetBox backup
+Documentation=https://github.com/netbox-community/netbox-docker
+Wants=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart={{ netbox_backup_script_path }}
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=netbox-backup

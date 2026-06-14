@@ -1,0 +1,11 @@
+# Managed by Ansible — do not edit manually
+[Unit]
+Description=NetBox backup — {{ netbox_backup_on_calendar }}
+
+[Timer]
+OnCalendar={{ netbox_backup_on_calendar }}
+Persistent=true
+RandomizedDelaySec={{ netbox_backup_random_delay }}
+
+[Install]
+WantedBy=timers.target
