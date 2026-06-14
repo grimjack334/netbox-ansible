@@ -73,3 +73,12 @@ netbox_compose_project: netbox
 # Note: docker group membership is equivalent to root access on the host.
 # Leave empty to skip (root-only Docker is the default).
 netbox_docker_users: []
+
+# Update settings.
+# Set netbox_update: true to force-pull the new image and recreate containers.
+# Change netbox_version to the target tag before running with netbox_update: true.
+netbox_update: false
+
+# Take a pg_dump backup before updating. Backups are written to netbox_backup_dir.
+netbox_pre_update_backup: true
+netbox_backup_dir: /opt/netbox-backups

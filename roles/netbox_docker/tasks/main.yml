@@ -98,6 +98,12 @@
     force_source: false
   when: netbox_build_image | bool
 
+# ── Update ────────────────────────────────────────────────────────────────────
+
+- name: Run update procedure
+  ansible.builtin.include_tasks: update.yml
+  when: netbox_update | bool
+
 # ── Docker Compose ─────────────────────────────────────────────────────────────
 
 - name: Template docker-compose.yml

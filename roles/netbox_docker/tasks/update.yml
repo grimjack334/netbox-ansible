@@ -1,0 +1,91 @@
+---
+# Pre-update database backup ──────────────────────────────────────────────────
+
+- name: Pre-update backup
+  when: netbox_pre_update_backup | bool
+  block:
+    - name: Create backup directory
+      ansible.builtin.file:
+        path: "{{ netbox_backup_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Dump NetBox database to backup file
+      community.docker.docker_container_exec:
+        container: "{{ netbox_compose_project }}-postgres-1"
+        command: >-
+          pg_dump -U {{ netbox_db_user }} {{ netbox_db_name }}
+      register: _pg_dump
+
+    - name: Write backup SQL to disk
+      ansible.builtin.copy:
+        content: "{{ _pg_dump.stdout }}"
+        dest: >-
+          {{ netbox_backup_dir }}/netbox-{{ ansible_date_time.iso8601_basic_short }}.sql
+        owner: root
+        group: root
+        mode: "0640"
+
+    - name: Report backup location
+      ansible.builtin.debug:
+        msg: >-
+          Backup written to
+          {{ netbox_backup_dir }}/netbox-{{ ansible_date_time.iso8601_basic_short }}.sql
+
+# Pull / rebuild image ─────────────────────────────────────────────────────────
+
+- name: Pull updated upstream NetBox image
+  community.docker.docker_image:
+    name: "netboxcommunity/netbox"
+    tag: "{{ netbox_version }}"
+    source: pull
+    force_source: true
+  when: not (netbox_build_image | bool)
+
+- name: Rebuild custom image with updated base
+  community.docker.docker_image:
+    name: "{{ netbox_image_name }}"
+    tag: "{{ netbox_image_tag }}"
+    source: build
+    build:
+      path: "{{ netbox_base_dir }}"
+      pull: true       # re-pull the FROM base layer
+      nocache: true    # don't reuse cached pip install layer
+    force_source: true
+  when: netbox_build_image | bool
+
+# Recreate containers ──────────────────────────────────────────────────────────
+
+- name: Recreate NetBox stack with updated image
+  community.docker.docker_compose_v2:
+    project_src: "{{ netbox_base_dir }}"
+    project_name: "{{ netbox_compose_project }}"
+    state: present
+    recreate: always
+    pull: never        # image already pulled/built above
+
+- name: Wait for NetBox to become healthy after update
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host | default('127.0.0.1') }}:{{ netbox_http_port }}/api/"
+    method: GET
+    status_code: 200
+  register: _health
+  until: _health.status == 200
+  retries: 30
+  delay: 10
+
+# Explicit migration run (safety net for major version jumps) ─────────────────
+
+- name: Run database migrations
+  community.docker.docker_container_exec:
+    container: "{{ netbox_compose_project }}-netbox-1"
+    command: python /opt/netbox/netbox/manage.py migrate --no-input
+  register: _migrate
+  changed_when: "'No migrations to apply' not in _migrate.stdout"
+
+- name: Show migration output
+  ansible.builtin.debug:
+    msg: "{{ _migrate.stdout_lines }}"
+  when: _migrate.stdout_lines | length > 0
